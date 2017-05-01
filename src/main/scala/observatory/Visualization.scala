@@ -9,34 +9,47 @@ import Math.{abs, sin, acos, cos, pow, round}
 object Visualization {
 
   /**
-    * @param temperatures Known temperatures: pairs containing a location and the temperature at this location
+    * @param knownTemperatures Known temperatures: pairs containing a location and the temperature at this location
     * @param location Location where to predict the temperature
     * @return The predicted temperature at `location`
     */
-  def predictTemperature(temperatures: Iterable[(Location, Double)], location: Location): Double = {
+  def predictTemperature(knownTemperatures: Iterable[(Location, Double)], location: Location): Double = {
     val p = 6
+
     def greatCircleDistance(firstPoint: Location, secondPoint: Location): Double = {
-      val earthRadius = 6371  // In KMs.
-      val deltaLatitude = abs(firstPoint.lat - secondPoint.lat)
-      val deltaLongitude = abs(firstPoint.lon - secondPoint.lon)
-      val centralAngle = acos(sin(firstPoint.lat) * sin(secondPoint.lat) + cos(firstPoint.lat) * cos(secondPoint.lat) * cos(deltaLongitude))
+      val earthRadius = 6371
+      val firstPointInRadians = firstPoint.inRadians
+      val secondPointInRadians = secondPoint.inRadians
+      val deltaLongitude = abs(firstPointInRadians.lon - secondPointInRadians.lon)
+      val centralAngleInRadians =
+        acos(
+          sin(firstPointInRadians.lat) * sin(secondPointInRadians.lat) +
+            cos(firstPointInRadians.lat) * cos(secondPointInRadians.lat) * cos(deltaLongitude))
 
-      earthRadius * centralAngle
+      earthRadius * centralAngleInRadians
     }
 
-    def weight(known: Location, unknown: Location) = 1 / pow(greatCircleDistance(known, unknown), p)
-    val temperaturesAndDistances = temperatures.map {
-      case (knownLocation, temperature) => (knownLocation, temperature, greatCircleDistance(knownLocation, location))
+    def weight(distance: Double) =
+      1.0 / pow(distance, p)
+
+    def interpolateTemperature(temperatures: List[(Location, Double)],
+                               weightsSum: Double = 0,
+                               weightsTimesValuesSum: Double = 0): Double = {
+      temperatures match {
+        case Nil => weightsTimesValuesSum / weightsSum
+        case (knownLocation, knownTemperature) :: remainingTemperatures =>
+          val distance = greatCircleDistance(knownLocation, location)
+
+          if (distance <= 0.001) {
+            knownTemperature
+          } else {
+            val currentWeight = weight(distance)
+            interpolateTemperature(remainingTemperatures, weightsSum + currentWeight, weightsTimesValuesSum + currentWeight * knownTemperature)
+          }
+      }
     }
 
-    temperaturesAndDistances.find(_._3 <= 1) match {  // Use the temperature of a point within 1 km
-      case Some((_, temperature, _)) => temperature
-      case None =>
-        val numerator = temperaturesAndDistances.map { case (knownLocation, temperature, _) => temperature * weight(knownLocation, location) }.sum
-        val denominator = temperaturesAndDistances.map { case (knownLocation, _, _ ) => weight(knownLocation, location) }.sum
-
-        numerator / denominator
-    }
+    interpolateTemperature(knownTemperatures.toList)
   }
 
   /**
@@ -78,7 +91,52 @@ object Visualization {
     * @return A 360×180 image where each pixel shows the predicted temperature at its location
     */
   def visualize(temperatures: Iterable[(Location, Double)], colors: Iterable[(Double, Color)]): Image = {
-    ???
+    def gpsLocationToPixelLocation(location: Location): (Int, Int) = {
+      assert(-180.0 <= location.lat && location.lat <= 180.0, s"Latitude = ${location.lat} is not in range [-180, 180]")
+      assert(-90.0 <= location.lon && location.lon <= 90, s"Longitude = ${location.lon} is not in range [-90, 90]")
+
+      val (x, y) = ((location.lon + 180).toInt, (90 - location.lat).toInt)
+
+      assert(0 <= x && x <= 359, s"X = $x is not in range [0, 359]")
+      assert(0 <= y && y <= 179, s"Y = $y is not in range [0, 179]")
+
+      (x, y)
+    }
+
+    def pixelLocationToGpsLocation(x: Int, y: Int) = {
+      val longitude = x - 180
+      val latitude = 90 - y
+
+      Location(lat = latitude, lon = longitude)
+    }
+
+    def colorToPixel(color: Color, alpha: Int) = Pixel(r = color.red, g = color.green, b = color.blue, alpha = alpha)
+
+    val alpha = 127
+    val width = 360
+    val height = 180
+
+    val pixels: Array[Pixel] = new Array[Pixel](width * height)
+
+    for {
+      x <- 0 until width
+      y <- 0 until height
+    } {
+      val temperature = predictTemperature(temperatures, pixelLocationToGpsLocation(x, y))
+      val newColor = interpolateColor(colors, temperature)
+      pixels(y * width + x) = colorToPixel(newColor, alpha)
+    }
+
+    temperatures foreach {
+      case (location, temperature) =>
+        val color = interpolateColor(colors, temperature)
+        val (x, y) = gpsLocationToPixelLocation(location)
+        val pixel = colorToPixel(color, alpha)
+
+        pixels(y * width + x) = pixel
+    }
+
+    Image(w = width, h = height, pixels = pixels)
   }
 }
 
