@@ -90,7 +90,8 @@ object Visualization {
     * @param colors Color scale
     * @return A 360×180 image where each pixel shows the predicted temperature at its location
     */
-  def visualize(temperatures: Iterable[(Location, Double)], colors: Iterable[(Double, Color)]): Image = {
+  def visualize(temperatures: Iterable[(Location, Double)], colors: Iterable[(Double, Color)], width: Int = 360,
+                height: Int = 180, alpha: Int = 127): Image = {
     def gpsLocationToPixelLocation(location: Location): (Int, Int) = {
       assert(-180.0 <= location.lat && location.lat <= 180.0, s"Latitude = ${location.lat} is not in range [-180, 180]")
       assert(-90.0 <= location.lon && location.lon <= 90, s"Longitude = ${location.lon} is not in range [-90, 90]")
@@ -111,10 +112,6 @@ object Visualization {
     }
 
     def colorToPixel(color: Color, alpha: Int) = Pixel(r = color.red, g = color.green, b = color.blue, alpha = alpha)
-
-    val alpha = 127
-    val width = 360
-    val height = 180
 
     val pixels: Array[Pixel] = new Array[Pixel](width * height)
 

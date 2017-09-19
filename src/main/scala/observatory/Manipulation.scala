@@ -1,5 +1,6 @@
 package observatory
 
+
 /**
   * 4th milestone: value-added information
   */
@@ -11,7 +12,15 @@ object Manipulation {
     *         returns the predicted temperature at this location
     */
   def makeGrid(temperatures: Iterable[(Location, Double)]): (Int, Int) => Double = {
-    ???
+    val gridTemperatures = (for {
+      lat <- -89 to 90
+      lon <- -180 to 179
+    } yield {
+      val location = Location(lat, lon)
+      (location, Visualization.predictTemperature(temperatures, location))
+    }).toMap
+
+    (lt, ln) => gridTemperatures(Location(Math.round(lt), Math.round(ln)))
   }
 
   /**
@@ -20,7 +29,14 @@ object Manipulation {
     * @return A function that, given a latitude and a longitude, returns the average temperature at this location
     */
   def average(temperatures: Iterable[Iterable[(Location, Double)]]): (Int, Int) => Double = {
-    ???
+    val numberOfYears = temperatures.size
+    val grids = temperatures.map(makeGrid)
+    val averageMaps: Map[Location, Double] = (for {
+      lat <- -89 to 90
+      lon <- -180 to 179 }
+      yield Location(lat, lon) -> grids.map(g => g(lat, lon)).sum / numberOfYears).toMap
+
+    (lt, lon) => averageMaps(Location(Math.round(lt), Math.round(lon)))
   }
 
   /**
@@ -29,9 +45,8 @@ object Manipulation {
     * @return A sequence of grids containing the deviations compared to the normal temperatures
     */
   def deviation(temperatures: Iterable[(Location, Double)], normals: (Int, Int) => Double): (Int, Int) => Double = {
-    ???
+    val grid = makeGrid(temperatures)
+    (lt, ln) => grid(lt, ln) - normals(lt, ln)
   }
-
-
 }
 

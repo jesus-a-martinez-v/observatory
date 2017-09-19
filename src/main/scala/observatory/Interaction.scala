@@ -30,9 +30,20 @@ object Interaction {
     * @param zoom Zoom level
     * @param x X coordinate
     * @param y Y coordinate
-    * @return A 256×256 image showing the contents of the tile defined by `x`, `y` and `zooms`
+    * @return A 256×256 image showing the contents of the tile defined by `x`, `y` and `zoom`
     */
   def tile(temperatures: Iterable[(Location, Double)], colors: Iterable[(Double, Color)], zoom: Int, x: Int, y: Int): Image = {
+//    val coordinates = for{
+//      yCoordinate <- x until 256
+//      xCoordinate <- y until 256
+//    } yield {
+//      val newLocation = tileLocation(zoom + 8, xCoordinate, yCoordinate)
+//      val temperature = Visualization.predictTemperature(temperatures, newLocation)
+//
+//      (newLocation, temperature)
+//    }
+//
+//    Visualization.visualize(temperatures.toSet ++ coordinates.toSet, colors, 256, 256)
     ???
   }
 
@@ -47,7 +58,13 @@ object Interaction {
     yearlyData: Iterable[(Int, Data)],
     generateImage: (Int, Int, Int, Int, Data) => Unit
   ): Unit = {
-    ???
+    for {
+      (year, data) <- yearlyData
+      zoom <- 0 to 3
+      x <- 0 to (pow(2, zoom) - 1).toInt
+      y <- 0 to (pow(2, zoom) - 1).toInt
+    }
+      generateImage(year, zoom, x, y, data)
   }
 
 }
